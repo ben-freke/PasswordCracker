@@ -7,15 +7,24 @@ public class Main{
 
     private static HashMap<String, String> users;
     public static HashMap<String, String> dict;
-    private static final String DICTIONARY_LOCATION = "/Users/benfreke/Software Development/Java/PasswordCracker/src/dictionary.txt";
-    private static final String USERS_LOCATION = "/Users/benfreke/Software Development/Java/PasswordCracker/src/password.txt";
-    private static final int NUM_THREADS = 4;
+    public static HashMap<String, String> pwds;
+    public static HashMap<Integer, String> decrptedUsers;
+    private static final String DICTIONARY_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\dictionary.txt";
+    private static final String PASSWORDS_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\passwords.txt";
+    private static final String USERS_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\password.txt";
+    private static final int NUM_THREADS = 6;
+    public static long endTime;
 
     public static void main(String[] args)
     {
+        endTime = 0;
+        long startTime = System.currentTimeMillis();
         List<SortedMap<Integer, String>> listOfMaps = new ArrayList<>();
+        decrptedUsers = new HashMap<>();
+
         try {
             dict = getDict(DICTIONARY_LOCATION);
+            pwds = getDict(PASSWORDS_LOCATION);
             System.out.println("Dictionary Size: " + dict.size());
             TreeMap<Integer, String> users = getData(USERS_LOCATION);
             int sections = (int) Math.ceil(users.size() / NUM_THREADS);
@@ -28,11 +37,9 @@ public class Main{
                 final int value = i;
                 (new Thread() {
                     public void run() {
-                        long startTime = System.currentTimeMillis();
                         PasswordThread passwordThread = new PasswordThread();
                         passwordThread.run(listOfMaps.get(value));
-                        long endTime   = System.currentTimeMillis();
-                        long totalTime = endTime - startTime;
+                        System.out.println("Thread " + value + ": " + (System.currentTimeMillis() - startTime));
                     }
                 }).start();
             }
@@ -97,8 +104,5 @@ public class Main{
             return null;
         }
     }
-
-
-
 
 }

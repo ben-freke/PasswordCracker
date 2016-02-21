@@ -18,41 +18,46 @@ public class PasswordThread {
                 int key = entry.getKey();
                 String value = entry.getValue();
                 boolean found = false;
+                if (Main.pwds.containsKey(value)) {
+                    Main.decrptedUsers.put(key, Main.pwds.get(value));
+                    continue;
+                }
                 if (Main.dict.containsKey(value)) {
-                    System.out.println(key + ":" + Main.dict.get(value));
+                    Main.decrptedUsers.put(key, Main.dict.get(value));
                     continue;
                 }
                 for(Map.Entry<String, String> dictEntry : Main.dict.entrySet()) {
                     String line = dictEntry.getValue();
                     if (checkFound(line.toUpperCase(), value))
                     {
-                        System.out.println(key + ":" + line.toUpperCase());
+                        Main.decrptedUsers.put(key, line.toUpperCase());
                         break;
                     }
 
                     if (checkFound(capitalise(line), value))
                     {
-                        System.out.println(key + ":" + capitalise(line));
+                        Main.decrptedUsers.put(key, capitalise(line));
                         break;
                     }
 
                     if (checkFound(replace('o', '0', line), value))
                     {
-                        System.out.println(key + ":" + replace('o', '0', line));
+                        Main.decrptedUsers.put(key, replace('o', '0', line));
                         break;
                     }
 
                     if (checkFound(replace('e', '3', line), value))
                     {
-                        System.out.println(key + ":" + replace('e', '3', line));
+                        Main.decrptedUsers.put(key, replace('e', '3', line));
                         break;
                     }
 
-                    /**String pwd = concatYears(line, value);
-                    if (pwd != null) {
-                        System.out.println(key + ":" + pwd);
+                    if (checkFound(replace('a', '@', line), value))
+                    {
+                        Main.decrptedUsers.put(key, replace('a', '@', line));
                         break;
-                    }**/
+                    }
+
 
                     /**String pwd = concat(line, value);
                     if (pwd != null) {
