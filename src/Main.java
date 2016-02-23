@@ -1,56 +1,172 @@
 import java.io.*;
 import java.security.MessageDigest;
 import java.util.*;
-import java.util.regex.Pattern;
 
 public class Main{
 
-    private static HashMap<String, String> users;
+    public static HashMap<String, String> users;
+    public static HashMap<String, String> users_pw_index;
+    private static HashMap<String, String> crackedUsers;
     public static HashMap<String, String> dict;
     public static HashMap<String, String> pwds;
-    public static HashMap<Integer, String> decrptedUsers;
+    public static ArrayList<String> concatList;
+
+    /**
+     * Variables that must be set by the operator.
+     */
     private static final String DICTIONARY_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\dictionary.txt";
-    private static final String PASSWORDS_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\passwords.txt";
-    private static final String USERS_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\password.txt";
-    private static final int NUM_THREADS = 6;
-    public static long endTime;
+    private static final String CONCACT_DICT_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\concatDict.txt";
+    public static final String PASSWORDS_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\passwords.txt";
+    private static final String USERS_LOCATION = "D:\\Software Development\\Java\\Password Cracker\\src\\samplepassword.txt";
+    private static final int NUM_MINUTES_RUN = 10;
+
+    /**
+     * The main method runs the program. This method creates different threads for actions in the password cracking
+     * sequence and runs them. Finally, this thread stops these password cracking attempts when a specified time
+     * limit has been exceeded.
+     * @param args
+     */
 
     public static void main(String[] args)
     {
-        endTime = 0;
         long startTime = System.currentTimeMillis();
-        List<SortedMap<Integer, String>> listOfMaps = new ArrayList<>();
-        decrptedUsers = new HashMap<>();
+        dict = getDict(DICTIONARY_LOCATION);
+        users = getData();
+        concatList = getConcatList();
+        crackedUsers = new HashMap<>();
 
-        try {
-            dict = getDict(DICTIONARY_LOCATION);
-            pwds = getDict(PASSWORDS_LOCATION);
-            System.out.println("Dictionary Size: " + dict.size());
-            TreeMap<Integer, String> users = getData(USERS_LOCATION);
-            int sections = (int) Math.ceil(users.size() / NUM_THREADS);
-            int cumulativeSum = 0;
-            for (int i = 0; i < NUM_THREADS; i++){
-                if (i == NUM_THREADS-1) listOfMaps.add(i, users.subMap(cumulativeSum,  users.size()));
-                else listOfMaps.add(i, users.subMap(cumulativeSum, cumulativeSum = cumulativeSum + sections));
+        /**
+         * Start the concatenation thread.
+         */
+        Thread concatThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).concat();
             }
-            for (int i = 0; i<listOfMaps.size(); i++){
-                final int value = i;
-                (new Thread() {
-                    public void run() {
-                        PasswordThread passwordThread = new PasswordThread();
-                        passwordThread.run(listOfMaps.get(value));
-                        System.out.println("Thread " + value + ": " + (System.currentTimeMillis() - startTime));
-                    }
-                }).start();
+        });
+        concatThread.start();
+
+        /**
+         * Start the search thread.
+         */
+        Thread searchThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).search();
             }
-        } catch (Exception e) {
+        });
+        searchThread.start();
+
+        /**
+         * Start the numbers thread.
+         */
+        Thread numbersThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).numbers();
+            }
+        });
+        numbersThread.start();
+
+        /**
+         * Start the capitalisation thread.
+         */
+        Thread capitalsThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).capitals();
+            }
+        });
+        capitalsThread.start();
+
+        /**
+         * Start the symbol concatenation thread.
+         */
+        Thread symbolConcatThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).symbolConcat();
+            }
+        });
+        symbolConcatThread.start();
+
+        /**
+         * Start the letter replacement thread.
+         */
+        Thread letterReplacementThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).letterReplacement();
+            }
+        });
+        letterReplacementThread.start();
+
+        /**
+         * Start the search thread for the big password list.
+         */
+        Thread passwordListCheckerThread = (new Thread() {
+            public void run() {
+                (new PasswordThread()).passwordList();
+            }
+        });
+        passwordListCheckerThread.start();
+
+        Boolean running = true;
+        while (true) {
+            if ((System.currentTimeMillis() - startTime) > (NUM_MINUTES_RUN*60000)-10000){
+                searchThread.stop();
+                numbersThread.stop();
+                capitalsThread.stop();
+                symbolConcatThread.stop();
+                letterReplacementThread.stop();
+                passwordListCheckerThread.stop();
+                concatThread.stop();
+                running = false;
+            }
+            if (!running)
+            {
+                try {
+                    PrintWriter writer = new PrintWriter("output", "UTF-8");
+                    for(Map.Entry<String, String> entry : crackedUsers.entrySet()) writer.write("user" + entry.getKey() + ":" + entry.getValue() + "\n");
+                    writer.close();
+                    System.out.println("Completed Successfully");
+                } catch (Exception e){System.out.println("Saving Data Failed");}
+                break;
+
+            }
         }
     }
-    private static TreeMap<Integer, String> getData(String filename) throws Exception
+
+    /**
+     * Takes in UserID and the Plan Text Password when a thread has found a user.
+     * Adds the user to the crackedUsers HashMap and removes the user from the users HashMap so
+     * other processes do not attempt to waste resources on that password.
+     * @param userID
+     * @param planTxtPassword
+     */
+    public static void foundUser(int userID, String planTxtPassword)
     {
-            File file = new File(filename);
+        crackedUsers.put(String.valueOf(userID), planTxtPassword);
+        users.remove(userID);
+    }
+
+    /**
+     * Takes in a (hashed) password and returns the integer of the relevant user's ID.
+     * If no password is found, function returns -1.
+     * @param password
+     * @return
+     */
+    public static int findUserByPassowrd(String password)
+    {
+        for (int i = 0; i < users.size(); i++) if (users.get(String.valueOf(i)) == password) return i;
+        return -1;
+
+    }
+
+    /**
+     * Takes in a filename and returns a HashMap of the list of users, with the UserID Int (in string form) in the
+     * key and the hashed password in the value fields respectively
+     */
+    private static HashMap<String, String> getData()
+    {
+        try {
+            File file = new File(USERS_LOCATION);
             FileReader fileReader = new FileReader(file);
-            TreeMap<Integer, String> users = new TreeMap<>();
+            HashMap<String, String> users1 = new HashMap<>();
             char[] charArray = new char[(int) file.length() ];
             fileReader.read(charArray);
             int pointer = 0;
@@ -75,15 +191,49 @@ public class Main{
                     }
                     String hashKey = builder.toString();
                     String[] parts = username.split("user");
-                    users.put(Integer.parseInt(parts[1]), hashKey);
+                    users1.put(parts[1], hashKey);
                     pointer = hashLength;
                     i = pointer + 1;
                 }
             }
-            return users;
+            return users1;
+        } catch (Exception e) {
+            return null;
+        }
+
     }
 
-    private static HashMap<String, String> getDict(String filename) {
+    /**
+     * Returns the ArrayList for the dictionary used in the concatenation function. This is a smaller dictionary than
+     * the main dictionary in order to reduce the efficiency of the program.
+     * @return
+     */
+    private static ArrayList<String> getConcatList()
+    {
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(CONCACT_DICT_LOCATION));
+            int i = 0;
+            concatList = new ArrayList<>();
+            String line;
+            while((line = bufferedReader.readLine()) != null) {
+                concatList.add(i, line);
+                i++;
+            }
+            return concatList;
+        } catch (Exception e)
+        {
+            return null;
+        }
+    }
+
+    /**
+     * Takes in a filename and returns HashMap, with the hashedWord as the key in order to speed up
+     * processing. Used for dictionaries
+     * @param filename
+     * @return
+     */
+    public static HashMap<String, String> getDict(String filename)
+    {
         try {
             HashMap<String, String> dict = new HashMap<>();
             String line;
